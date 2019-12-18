@@ -1,0 +1,482 @@
+#sprintf ("Calculating the area\nLength = %d and width = %d\nArea = %d (0x%X)", a, b, c, c);
+	.data
+prompt:		.asciiz		"\nEnter a valid sprintf function:\n"
+print1:		.asciiz		"\nOutbuf:\n"
+print2:		.asciiz		"\nArguments On Stack Order (Top to Bottom):\n"
+print3:		.asciiz		" - "
+input:		.space		200	# User Input String
+format:		.space		2000	# Format for sprintf string (What is between "...")
+reversed:	.space		2000	# 
+outbuf:		.space		2000	# Final Result String
+
+	.text
+	.globl main
+
+main:	
+	la	$a0, prompt		# Output the pompt
+	li 	$v0, 4			# Tell the system we are printing a string
+	syscall
+
+	la	$a0, input 		# Load the function in input
+	li 	$a1, 256		# Maximum of 256 characters
+	li 	$v0, 8 			# Tell the system we are reading a string
+	syscall
+
+	la	$s0, input 		# Pointer to inout string
+	la	$s1, format 		# Pointer to format string
+	la	$s2, outbuf 		# Pointer to outbuf string
+	li	$s3, 0			# Counter to number of values of sprintf
+	la	$s4, reversed
+	
+	li	$t5, -23			# Random integer to argument
+	li	$t6, 200			# Random integer to argument
+	li	$t7, 300			# Random integer to argument
+	li	$t8, 400			# Random integer to argument
+	li	$t9, 500			# Random integer to argument
+	
+	jal	 ReverseFunc		# Reverse input string to store arguemnts in correct order on stack
+	jal 	ProcessInput
+	
+	la 	$a0,outbuf
+	la 	$a1,format
+	jal 	sprintf
+	
+# Testing Output :-
+	la 	$a0, print1
+	li 	$v0, 4
+	syscall
+	la 	$a0, outbuf
+	li 	$v0, 4
+	syscall
+	li 	$v0, 10			# End Progrm
+	syscall
+
+
+ProcessInput:	# This loop will keep going until we reach the end of the input string
+
+	lb 	$t0, 0($s0)		# Load a char from input string
+	addi	$s0,$s0,1		# Increment input string pointer ($s0)
+	beqz	$t0, done 		# If we have reached the end of the string, stop iterating through
+	li 	$t1, ' '		
+	beq	$t0, $t1, ProcessInput 	# If we have reached a ( ), we skip it
+	li 	$t1, '"'		
+	beq	$t0, $t1, ReadFormat 	# If we have reached a ("), go to the ReadFormat
+	li 	$t1, ','		
+	beq	$t0, $t1, StoreValue 	# If we have reached a (,) go to the ReadFormat
+	j	ProcessInput 		# Go back up to the start of the loop
+
+ReadFormat:	# This loop will keep going until we reach the ending of format string: (")
+
+	lb 	$t0, ($s0)		# Load a char from input string
+	addi	$s0,$s0,1		# Increment input string pointer ($s0)
+	li 	$t1, '"'
+	beq	$t0, $t1, StoreValue 	# If we have reached a (") stop iterating through and return to ProcessInput
+	sb	$t0, 0($s1)		# Store the char into format string
+	addi	$s1,$s1,1		# Increment format string pointer ($s1)
+	j	ReadFormat 		# go back up to the start of the loop
+
+
+StoreValue:	# This loop will keep going until we finish the arguments in reversed string
+	
+	lb 	$t0, 0($s4)        	# Get first digit of reverse string
+   	addi 	$s4, $s4, 1      	# Advance string pointer 
+	
+	beqz	$t0, done
+	li 	$t1, '"'		
+	beq	$t0, $t1, done 	# 
+	
+	li 	$t1, 'a'		
+	beq	$t0, $t1, UseA 	# 
+	li 	$t1, 'b'		
+	beq	$t0, $t1, UseB 	# 
+	li 	$t1, 'c'		
+	beq	$t0, $t1, UseC 	# 
+	li 	$t1, 'd'		
+	beq	$t0, $t1, UseD 	# 
+	li 	$t1, 'e'		
+	beq	$t0, $t1, UseE 	# 
+
+	j StoreValue
+	
+UseA:	addi 	$sp,$sp,-4
+    	sw 	$t5, 0($sp)
+	addi	$s3,$s3,1
+	j 	StoreValue
+	
+UseB:	addi 	$sp,$sp,-4
+    	sw 	$t6, 0($sp)
+	addi	$s3,$s3,1
+	j 	StoreValue
+	
+UseC:	addi 	$sp,$sp,-4
+    	sw 	$t7, 0($sp)
+	addi	$s3,$s3,1
+	j 	StoreValue
+	
+UseD:	addi 	$sp,$sp,-4
+    	sw 	$t8, 0($sp)
+	addi	$s3,$s3,1
+	j 	StoreValue
+	
+UseE:	addi 	$sp,$sp,-4
+    	sw 	$t9, 0($sp)
+	addi	$s3,$s3,1
+	j 	StoreValue
+		
+	
+done:	jr 	$ra			# Finished processing the input string ($s1 now has format string, $t5-t9 have the values)
+
+
+ReverseFunc:	move    $t2, $s0       
+Reverse1:   	lb      $t1, 0($s0)     
+    		beq     $t1, 0, Reverse2   
+    		addi    $s0, $s0, 1    
+    		j       Reverse1 
+Reverse2: 	subi    $s0, $s0, 1  
+    		blt     $s0, $t2, ReverseEnd   
+    		lb      $t0, 0($s0)     
+    		sb	$t0, 0($s4)
+    		addi	$s4,$s4,1
+    		j       Reverse2          
+ReverseEnd: 	la	$s0, input 		# Reassign pointer to beginning
+		la	$s4, reversed		# Reassign pointer to beginning
+		jr $ra
+
+# ---------------------- SPRINT F FUNCTION ------------------
+sprintf:
+	move 	$s2,$a0
+	move 	$s1, $a1
+	move	$t5,$ra
+	
+checkpercent:
+	lb	$t0, 0($s1)
+	addi 	$s1, $s1, 1
+	beqz 	$t0, Return
+	beq 	$t0, '%', findfunct
+	beq 	$t0, '/', nxtline
+	sb 	$t0, 0($s2)
+	addi 	$s2, $s2, 1
+	j 	checkpercent
+
+findfunct:
+	lw 	$s4, 0($sp)
+	
+	
+    	addi 	$sp, $sp, 4
+	#li 	$t3,0 
+	#li 	$t2,0 
+	
+	lb 	$t1, 0($s1)
+	addi 	$s1, $s1, 1
+	beq 	$t1, 'd', negativeornot
+	beq 	$t1, 'u', negativeornot1
+	beq 	$t1, 'o', negativeornoto
+	beq 	$t1, 'b', percentb
+	beq 	$t1, 'x', percentx
+	beq 	$t1, 'X', percentX
+	beq 	$t1, 'c', percentc
+	j	checkpercent
+
+Return:	jr	$t5
+
+# HexaDecimal
+percentx:	li 	$t0, 8               # counter 
+		li 	$a2, 0
+		j 	loopx
+percentX:	li 	$t0, 8            
+		li 	$a2, 1
+		j 	loopx 
+loopx: 		beqz 	$t0, checkpercent      
+		rol 	$s4, $s4, 4     # rotate 4 bits to the left     
+		and 	$t4, $s4, 0xf           # mask with 1111     
+		ble 	$t4, 9, numberx     # if less than or equal to nine, branch to sum     
+		
+		bnez 	$a2,isX
+		beqz 	$a2,isx
+		
+isx:		addi 	$t4, $t4, 87           # if greater than nine, add 55     
+		j 	donex 
+isX:		addi 	$t4, $t4, 55           # if greater than nine, add 55     
+		j 	donex 		    
+numberx:   	addi 	$t4, $t4, 48   # add 48 to result 
+donex:    	sb 	$t4, 0($s2)      # store hex digit into result     
+		addi 	$s2, $s2, 1        # increment address counter     
+		addi 	$t0, $t0, -1       # decrement loop counter 
+		j 	loopx 
+
+negativeornoto:
+
+slt $t1, $s4, $0
+beqz $t1, percentopos
+j percentoneg							
+percentopos:	move $a0,$s4
+		jal converto
+		j checkpercent
+converto:	addi $sp,$sp, -12
+		sw $t3,8($sp) 
+		sw $t2,4($sp) 
+		sw $ra,0($sp)
+		add $t2,$zero,$a0
+		beqz $t2,doneo
+		
+		div $t4,$t2,8 
+		rem $t3,$t2,8 
+		add $sp,$sp,-4
+		sw $t3,0($sp) 
+		add $a0,$zero,$t4
+		addi $t3,$t3,1
+		
+		jal converto 
+doneo:		lw $ra,0($sp)
+		lw $t2,4($sp)
+		lw $t3,8($sp)
+		beqz $t3,exito
+		lw $a0,12($sp)
+		addi $sp,$sp,4
+
+		addiu $a0,$a0,'0'
+		sb $a0, 0($s2)      # store hex digit into result     
+		addi $s2, $s2, 1        # increment address counter 
+		
+exito: 		addi $sp,$sp,12
+		jr $ra
+			
+percentoneg:
+	move $a0,$s4
+		jal converto
+		j checkpercent
+convertoneg:	addi $sp,$sp, -12
+		sw $t3,8($sp) 
+		sw $t2,4($sp) 
+		sw $ra,0($sp)
+		add $t2,$zero,$a0
+		beqz $t2,doneoneg
+		
+		div $t4,$t2,8 
+		rem $t3,$t2,8 
+		add $sp,$sp,-4
+		sw $t3,0($sp) 
+		add $a0,$zero,$t4
+		addi $t3,$t3,1
+		
+		jal convertoneg
+doneoneg:		lw $ra,0($sp)
+		lw $t2,4($sp)
+		lw $t3,8($sp)
+		beqz $t3,exitoneg
+		lw $a0,12($sp)
+		addi $sp,$sp,4
+		
+		addiu $a0,$a0,'0'
+		sb $a0, 0($s2)      # store hex digit into result     
+		addi $s2, $s2, 1        # increment address counter 
+		
+exitoneg: 		addi $sp,$sp,12
+		jr $ra	
+						
+# Binary								
+percentb:	move $a0,$s4
+		jal convertb
+		j checkpercent
+convertb:	addi $sp,$sp, -12
+		sw $t3,8($sp) 
+		sw $t2,4($sp) 
+		sw $ra,0($sp)
+		add $t2,$zero,$a0
+		beqz $t2,doneb
+		
+		div $t4,$t2,2 
+		rem $t3,$t2,2 
+		add $sp,$sp,-4
+		sw $t3,0($sp) 
+		add $a0,$zero,$t4
+		addi $t3,$t3,1
+		
+		jal convertb 
+doneb:		lw $ra,0($sp)
+		lw $t2,4($sp)
+		lw $t3,8($sp)
+		beqz $t3,exitb
+		lw $a0,12($sp)
+		addi $sp,$sp,4
+
+		addiu $a0,$a0,'0'
+		sb $a0, 0($s2)      # store hex digit into result     
+		addi $s2, $s2, 1        # increment address counter 
+		
+exitb: 		addi $sp,$sp,12
+		jr $ra
+
+negativeornot:
+move $a0,$s4
+slt $t1, $a0, $0
+beqz $t1, percentdpos
+j percentdneg
+
+percentdpos:
+		jal conpercentdpos
+		j checkpercent
+conpercentdpos:	addi $sp,$sp, -12
+		sw $t3,8($sp) 
+		sw $t2,4($sp) 
+		sw $ra,0($sp)
+		add $t2,$zero,$a0
+		beqz $t2,donepercentdpos
+		div $t4,$t2,10
+		rem $t3,$t2,10
+		add $sp,$sp,-4
+		sw $t3,0($sp) 
+		add $a0,$zero,$t4
+		addi $t3,$t3,1
+		jal conpercentdpos 
+donepercentdpos:		lw $ra,0($sp)
+		lw $t2,4($sp)
+		lw $t3,8($sp)
+		beqz $t3,exitpercentdpos
+		lw $a0,12($sp)
+		addi $sp,$sp,4
+		addiu $a0,$a0,'0'
+		sb $a0, 0($s2)      # store hex digit into result     
+		addi $s2, $s2, 1        # increment address counter 
+		
+exitpercentdpos: addi $sp,$sp,12
+		jr $ra
+		
+percentdneg:
+li $a1, '-'
+		sb $a1, 0($s2)
+		addi $s2, $s2, 1
+		jal conpercentdneg
+		j checkpercent
+conpercentdneg:	addi $sp,$sp, -12
+		sw $t3,8($sp) 
+		sw $t2,4($sp) 
+		sw $ra,0($sp)
+		add $t2,$zero,$a0
+		beqz $t2,donepercentdneg
+		div $t4,$t2,10
+		rem $t3,$t2,10
+		add $sp,$sp,-4
+		sw $t3,0($sp) 
+		add $a0,$zero,$t4
+		addi $t3,$t3,1
+		jal conpercentdneg 
+donepercentdneg:		lw $ra,0($sp)
+		lw $t2,4($sp)
+		lw $t3,8($sp)
+		beqz $t3,exitpercentdneg
+		lw $a0,12($sp)
+		addi $sp, $sp, 4
+		
+		nor $a0, $a0, $a0
+		addi $a0, $a0, 1
+		addi $a0,$a0, '0'
+		sb $a0, 0($s2)      # store hex digit into result     
+		addi $s2, $s2, 1        # increment address counter 
+		
+exitpercentdneg: 
+		
+addi $sp,$sp,12
+jr $ra
+		
+negativeornot1:
+move $a0,$s4
+slt $t1, $a0, $0
+beqz $t1, percentupos
+j percentuneg
+
+percentupos:
+jal conpercentupos
+		j checkpercent
+conpercentupos:	addi $sp,$sp, -12
+		sw $t3,8($sp) 
+		sw $t2,4($sp) 
+		sw $ra,0($sp)
+		add $t2,$zero,$a0
+		beqz $t2,donepercentupos
+		div $t4,$t2,10
+		rem $t3,$t2,10
+		add $sp,$sp,-4
+		sw $t3,0($sp) 
+		add $a0,$zero,$t4
+		addi $t3,$t3,1
+		jal conpercentupos 
+donepercentupos:		lw $ra,0($sp)
+		lw $t2,4($sp)
+		lw $t3,8($sp)
+		beqz $t3,exitpercentupos
+		lw $a0,12($sp)
+		addi $sp,$sp,4
+		addiu $a0,$a0,'0'
+		sb $a0, 0($s2)      # store hex digit into result     
+		addi $s2, $s2, 1        # increment address counter 
+		
+exitpercentupos: addi $sp,$sp,12
+		jr $ra
+		
+percentuneg:
+	jal conpercentuneg
+		j checkpercent
+conpercentuneg:	addi $sp,$sp, -12
+		sw $t3,8($sp) 
+		sw $t2,4($sp) 
+		sw $ra,0($sp)
+		add $t2,$zero,$a0
+		beqz $t2,donepercentuneg
+		nor $t2, $t2, $t2
+		div $t4,$t2,10
+		rem $t3,$t2,10
+		add $sp,$sp,-4
+		sw $t3,0($sp) 
+		add $a0,$zero,$t4
+		addi $t3,$t3,1
+		jal conpercentuneg 
+donepercentuneg:		lw $ra,0($sp)
+		lw $t2,4($sp)
+		lw $t3,8($sp)
+		beqz $t3,exitpercentuneg
+		lw $a0,12($sp)
+		addi $sp, $sp, 4
+		addi $a0, $a0, '0'
+		nor $a0, $a0, $a0
+		addi $a0, $a0, 1
+		sb $a0, 0($s2)
+		addi $s2, $s2, 1
+		     # store hex digit into result     
+		      # increment address counter 
+		
+exitpercentuneg: 		
+addi $sp,$sp,12
+jr $ra
+
+percentc:
+move $a0,$s4
+jal pc
+j checkpercent
+pc:
+andi $a0, $a0, 0xff
+addi $sp, $sp, -8
+sw $ra, 0($sp)
+sw $a0, 4($sp)
+j donepercentc
+
+donepercentc:
+lw $ra, 0($sp)
+lw $a0, 4($sp)
+sb $a0, 0($s2)
+addi $s2, $s2, 1
+beqz $a0, exitpercentc
+
+exitpercentc:
+addi $sp, $sp, 8
+jr $ra
+
+nxtline:
+addi $s1, $s1, 1
+lb $t0, 0($s1)
+bne $t0, 'n', checkpercent
+li $t0, 10
+addi $t0, $t0, '0'
+addi $s2, $s2, 1
+sb $t0, 0($s2)
+j checkpercent
